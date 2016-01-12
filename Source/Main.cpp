@@ -9,6 +9,8 @@
 */
 
 #include "../JuceLibraryCode/JuceHeader.h"
+#include "MainHostWindow.h"
+#include <Memory>
 
 Component* createMainContentComponent();
 
@@ -27,8 +29,21 @@ public:
     void initialise (const String& commandLine) override
     {
         // This method is where you should put your application's initialisation code..
+		PropertiesFile::Options options;
+		options.applicationName = getApplicationName();
+		options.filenameSuffix = "settings";
 
-        mainWindow = new MainWindow (getApplicationName());
+		appProperties = new ApplicationProperties();
+		appProperties->setStorageParameters(options);
+
+		LookAndFeel::setDefaultLookAndFeel(&lookAndFeel);
+				
+        mainWindow = new MainHostWindow (getApplicationName());
+		mainWindow->setUsingNativeTitleBar(true);
+
+		commandManager.registerAllCommandsForTarget(this);
+		//commandManager.registerAllCommandsForTarget(mainWindow);
+		std::unique_ptr<int> testPtr(new int(3));
     }
 
     void shutdown() override
@@ -43,7 +58,11 @@ public:
     {
         // This is called when the app is being asked to quit: you can ignore this
         // request and let the app carry on running, or call quit() to allow the app to close.
-        quit();
+        //quit();
+		if (mainWindow != nullptr)
+			mainWindow->tryToQuitApplication();
+		else
+			quit();
     }
 
     void anotherInstanceStarted (const String& commandLine) override
@@ -55,45 +74,17 @@ public:
 
     //==============================================================================
     /*
-        This class implements the desktop window that contains an instance of
-        our MainContentComponent class.
+
     */
-    class MainWindow    : public DocumentWindow
-    {
-    public:
-        MainWindow (String name)  : DocumentWindow (name,
-                                                    Colours::lightgrey,
-                                                    DocumentWindow::allButtons)
-        {
-            setUsingNativeTitleBar (true);
-            setContentOwned (createMainContentComponent(), true);
-            setResizable (true, true);
+    
+	//Member vars
 
-            centreWithSize (getWidth(), getHeight());
-            setVisible (true);
-        }
-
-        void closeButtonPressed() override
-        {
-            // This is called when the user tries to close this window. Here, we'll just
-            // ask the app to quit when this happens, but you can change this to do
-            // whatever you need.
-            JUCEApplication::getInstance()->systemRequestedQuit();
-        }
-
-        /* Note: Be careful if you override any DocumentWindow methods - the base
-           class uses a lot of them, so by overriding you might break its functionality.
-           It's best to do all your work in your content component instead, but if
-           you really have to override any DocumentWindow methods, make sure your
-           subclass also calls the superclass's method.
-        */
-
-    private:
-        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainWindow)
-    };
+	ApplicationCommandManager commandManager;
+	ScopedPointer<ApplicationProperties> appProperties;
+	LookAndFeel_V3 lookAndFeel;
 
 private:
-    ScopedPointer<MainWindow> mainWindow;
+    ScopedPointer<MainHostWindow> mainWindow;
 };
 
 static ZenStudioApplication& getApp()
@@ -101,6 +92,15 @@ static ZenStudioApplication& getApp()
 	return *dynamic_cast<ZenStudioApplication*>(JUCEApplication::getInstance());
 }
 
+ApplicationCommandManager& getCommandManager()
+{
+	return getApp().commandManager;
+}
+
+ApplicationProperties& getAppProperties()
+{
+	return *getApp().appProperties;
+}
 //==============================================================================
 // This macro generates the main() routine that launches the app.
 START_JUCE_APPLICATION (ZenStudioApplication)
